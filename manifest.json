@@ -5,20 +5,12 @@
     "manifest_version": 3,
     "action": {
         "default_popup": "Secretary.html",
-        "default_icon": "Secretary_Bird.png"
+        "default_icon": "images/Secretary_16x16.png"
     },
     "icons": {
         "16": "images/Secretary_16x16.png",
         "32": "images/Secretary_32x32.png",
         "64": "images/Secretary_64x64.png",
         "128": "images/Secretary_128x128.png"
-    },
-    "content_scripts": [
-        {
-            "js": ["scripts/[NAME].js"],
-            "matches": [
-                ""
-            ]
-        }
-    ]
+    }
 }
