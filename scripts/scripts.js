@@ -1,5 +1,7 @@
 let lmSession = null;
 
+          
+
 document.addEventListener('DOMContentLoaded', function(){
    document.getElementById('sendPrompt').addEventListener('click', async () => {
         const userInput = document.getElementById('promptInput').value;
@@ -23,22 +25,102 @@ async function ensureModelSession(outputEl) {
     throw new Error("Model unavailable");
   }
 
-  // 3) create session & download model if necessary
-  outputEl.textContent = "Preparing model…";
+  //create new session
+  outputEl.textContent = "Preparing model...";
   lmSession = await LanguageModel.create({
-    monitor(m) {
-      m.addEventListener("downloadprogress", (e) => {
-        if (e.total && e.total > 0) {
-          const pct = Math.round((e.loaded / e.total) * 100);
-          outputEl.textContent = `Downloading model… ${pct}%`;
-        } else {
-          outputEl.textContent = "Downloading model…";
-        }
-      });
-    }
+    expectedInputs: [
+      {type: "text", languages: ["en"]}
+    ],
+    expectedOutputs: [
+      {type: "text", languages: ["en"]}
+    ],
+    //define purpose
+    tools: {
+      name: "getWeather",
+          description: "get weather by latitude and longitude",
+        inputSchema:{
+          type: "object",
+          properties:{
+            latitude: {
+              type: "number",
+              description: "The latitude of the point",
+            },
+            longitude: {
+              type: "number",
+              description: "the longitude of the point",
+            },
+          },
+          required: ["latitude", "longitude"],
+        },
+        async execute({latitude, longitude}){
+          const res = await fetch("https://api.weather.gov/points/" + latitude + "," + longitude);
+          const data = await res.json();
+          return data;
+        }},
+
+    initialPrompts:[
+      {role: "system",
+        content: `You are the users helpful secretary. You can use tools 
+        to help the user if they request specific actions. Don't reiterate 
+        this sentence or the previous one in response. 
+
+        you can call exactly and only the following tools:
+        -getWeather: get weather by latitude and longitude
+        
+        If you need information you cannot know yet, you must use a tool, 
+        and if you use a tool, you must respond with a single JSON object
+        of the form: {"tool":"<toolName>","arguments":{...}}
+        
+        Do NOT answer the user yet if you call a tool. After you receive
+        tool results, you will be called again with role: "tool", context
+        and THEN you answer the user in natural language`
+      }
+    ],
   });
 
   return lmSession;
+}
+
+async function runTurn(session, userPrompt){
+  console.log("runTurn called");
+  let finalMessage = false;
+  
+  const primaryResponse = await session.prompt([
+    {role: "user", content: userPrompt}
+  ]);
+
+  //check to see if tool was called
+  let toolCall;
+  try{
+    toolCall = JSON.parse(primaryResponse);
+  } catch{
+    toolCall = null;
+  }
+
+  //if there is no tool property, assume primary response is a string & return
+  if(!toolCall || !toolCall.tool){
+    return typeof primaryResponse === "string" ? primaryResponse :primaryResponse.text ?? String(primaryResponse);
+  }
+
+  //find specified tool
+  const tool = allTools?.[toolCall.tool];
+  if(!tool){
+    return `Error: model asked for unknown tool${toolCall.tool} ${allTools}`;
+  }
+
+  const toolResult = await tool.execute(toolCall.arguments || {});
+
+  console.log(toolResult);
+  const finalResponse = await session.prompt([
+    {role: "user", content: userPrompt},
+    {
+      role: "tool",
+      name: toolCall.tool,
+      content: JSON.stringify(toolResult)
+    }
+  ]);
+
+  return typeof finalResponse === "string" ?finalResponse : finalResponse?.text ?? String(finalResponse);
 }
 
 async function reply(userPrompt) {
@@ -54,14 +136,24 @@ async function reply(userPrompt) {
     // make sure session has been initialized and the model has been loaded
     const session = lmSession ?? await ensureModelSession(output);
 
-    output.textContent = "Generating…";
-    const result = await session.prompt(
-      "Respond to the following in Haiku form: " + userPrompt.trim()
-    );
+    output.textContent = "Generating...";
+    const result = await runTurn(session, userPrompt.trim());
 
     output.textContent = typeof result === "string" ? result : (result?.text ?? String(result));
   } catch (err) {
     console.error(err);
     if (!output.textContent) output.textContent = "something went wrong";
   }
+}
+
+async function getEmailById(){
+
+}
+
+async function getAllEmails(){
+
+}
+
+async function createEmail(){
+
 }
