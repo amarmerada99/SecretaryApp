@@ -1,4 +1,4 @@
-let lmSession = null;
+let lmSession;
 
           
 
@@ -35,7 +35,7 @@ async function ensureModelSession(outputEl) {
       {type: "text", languages: ["en"]}
     ],
     //define purpose
-    tools: {
+    tools: [{
       name: "getWeather",
           description: "get weather by latitude and longitude",
         inputSchema:{
@@ -56,7 +56,7 @@ async function ensureModelSession(outputEl) {
           const res = await fetch("https://api.weather.gov/points/" + latitude + "," + longitude);
           const data = await res.json();
           return data;
-        }},
+        }}],
 
     initialPrompts:[
       {role: "system",
@@ -69,7 +69,8 @@ async function ensureModelSession(outputEl) {
         
         If you need information you cannot know yet, you must use a tool, 
         and if you use a tool, you must respond with a single JSON object
-        of the form: {"tool":"<toolName>","arguments":{...}}
+        of the form: {"tool":"<toolName>","arguments":{...}} when you return this object, return ONLY this object,
+        dont add the word "json" outside of it
         
         Do NOT answer the user yet if you call a tool. After you receive
         tool results, you will be called again with role: "tool", context
@@ -93,19 +94,24 @@ async function runTurn(session, userPrompt){
   let toolCall;
   try{
     toolCall = JSON.parse(primaryResponse);
+    console.log(toolCall);
   } catch{
     toolCall = null;
   }
 
   //if there is no tool property, assume primary response is a string & return
   if(!toolCall || !toolCall.tool){
+    console.log("no tool call");
     return typeof primaryResponse === "string" ? primaryResponse :primaryResponse.text ?? String(primaryResponse);
   }
 
   //find specified tool
-  const tool = allTools?.[toolCall.tool];
+  console.log(session);
+  console.log(session.tools);
+  console.log(toolCall.tool);
+  const tool = session.tools[toolCall.tool];
   if(!tool){
-    return `Error: model asked for unknown tool${toolCall.tool} ${allTools}`;
+    return `Error: model asked for unknown tool${toolCall.tool} ${Tools}`;
   }
 
   const toolResult = await tool.execute(toolCall.arguments || {});
@@ -139,7 +145,8 @@ async function reply(userPrompt) {
     output.textContent = "Generating...";
     const result = await runTurn(session, userPrompt.trim());
 
-    output.textContent = typeof result === "string" ? result : (result?.text ?? String(result));
+    console.log("result after tool is allegedly called: " + result);
+    output.textContent = result;
   } catch (err) {
     console.error(err);
     if (!output.textContent) output.textContent = "something went wrong";
