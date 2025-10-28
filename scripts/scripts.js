@@ -79,6 +79,22 @@ async function ensureModelSession(outputEl) {
     ],
   });
 
+  lmSession.tools={
+    getWeather: lmSession.expectedInputs
+    ? lmSession.expectedInputs : undefined,
+  };
+
+  lmSession.tools={
+    getWeather: {
+      async execute ({latitude, longitude}){
+        const res= await fetch(`https://api.weather.gov/points/${latitude},${longitude}`);
+        const data = await res.json();
+        return data;
+      },
+
+    },
+  };
+
   return lmSession;
 }
 
