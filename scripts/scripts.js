@@ -56,6 +56,28 @@ async function ensureModelSession(outputEl) {
           const res = await fetch("https://api.weather.gov/points/" + latitude + "," + longitude);
           const data = await res.json();
           return data;
+        }},
+      {
+      name: "getEmailById",
+          description: "get a single email by username and message id",
+        inputSchema:{
+          type: "object",
+          properties:{
+            username: {
+              type: "string",
+              description: "The username",
+            },
+            messageId: {
+              type: "number",
+              description: "the id of the message to get",
+            },
+          },
+          required: ["username", "messageId"],
+        },
+        async execute({username, messageId}){
+          const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/${username}/messages/${messageId}`);
+          const data = await res.json();
+          return data;
         }}],
 
     initialPrompts:[
@@ -66,11 +88,12 @@ async function ensureModelSession(outputEl) {
 
         you can call exactly and only the following tools:
         -getWeather: get weather by latitude and longitude
+        -getEmailById: get a single email by its message id and the users username
         
         If you need information you cannot know yet, you must use a tool, 
         and if you use a tool, you must respond with a single JSON object
-        of the form: {"tool":"<toolName>","arguments":{...}} when you return this object, return ONLY this object,
-        dont add the word "json" outside of it
+        of the form {"tool":"<toolName>","arguments":{...}} when you return this object, 
+        return ONLY this object, DO NOT add the word "json" outside of it
         
         Do NOT answer the user yet if you call a tool. After you receive
         tool results, you will be called again with role: "tool", context
@@ -79,10 +102,6 @@ async function ensureModelSession(outputEl) {
     ],
   });
 
-  lmSession.tools={
-    getWeather: lmSession.expectedInputs
-    ? lmSession.expectedInputs : undefined,
-  };
 
   lmSession.tools={
     getWeather: {
@@ -91,7 +110,13 @@ async function ensureModelSession(outputEl) {
         const data = await res.json();
         return data;
       },
-
+    },
+    getEmailById: {
+      async execute({username, messageId}){
+          const res = await fetch(`https://gmail.googleapis.com/gmail/v1/users/${username}/messages/${messageId}`);
+          const data = await res.json();
+          return data;
+        },
     },
   };
 
@@ -136,7 +161,7 @@ async function runTurn(session, userPrompt){
   const finalResponse = await session.prompt([
     {role: "user", content: userPrompt},
     {
-      role: "tool",
+      role: "assistant",
       name: toolCall.tool,
       content: JSON.stringify(toolResult)
     }

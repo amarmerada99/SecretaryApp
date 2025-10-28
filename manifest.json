@@ -12,5 +12,8 @@
         "32": "images/Secretary_32x32.png",
         "64": "images/Secretary_64x64.png",
         "128": "images/Secretary_128x128.png"
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' https://apis.google.com/js/platform.js"
     }
 }
